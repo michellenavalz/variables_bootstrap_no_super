@@ -1,0 +1,289 @@
+---
+title: ""
+header-includes:
+   - \usepackage[spanish]{babel}
+   - \usepackage[utf8]{inputenc}
+   - \decimalpoint
+   - \usepackage{booktabs}
+   - \usepackage{longtable}
+   - \usepackage{array}
+   - \usepackage{multirow}
+   - \usepackage{wrapfig}
+   - \usepackage{float}
+   - \usepackage{colortbl}
+   - \usepackage{pdflscape}
+   - \usepackage{tabu}
+   - \usepackage{threeparttable}
+   - \usepackage{threeparttablex}
+   - \usepackage[normalem]{ulem}
+   - \usepackage{makecell}
+   - \usepackage{xcolor}
+   - \usepackage{helvet}
+   - \usepackage{vmargin}
+   - \setpapersize{A4}
+   - \setmargins{1.0cm}{1.0cm}{18cm}{26cm}{0pt}{0cm}{0pt}{1.0cm}
+   - \pagestyle{empty}
+output:
+  pdf_document:
+    keep_tex: yes
+  html_document:
+    df_print: paged
+---
+
+```{=tex}
+\setcounter{figure}{7}
+\setcounter{table}{6}
+```
+```{r setup, include=FALSE, warning=FALSE,message=FALSE}
+# Limpeiza de datos
+rm(list = ls(all.names = TRUE))
+gc()
+
+knitr::opts_chunk$set(error = F,fig.height = 4,fig.width = 8)
+
+# Paqueterias a utilizar
+library(ggResidpanel) # Verificación de supuestos
+library(gridExtra)
+library(tidyverse)
+library(knitr)
+library(corrplot)   # Graficas mas bonitas de correlación
+library(dplyr)      # Para el manejo de datos
+library(ggplot2)    # Para realizar gráficas
+library(kableExtra) # Para un mejor manejo de tablas
+library(GGally)     # Para realizar análisis descriptivo fácilmente
+library(multcomp)   # Para pruebas de hipótesis
+library(car)        # Para funciones útiles de modelos de regresión lineal múltiple
+library(broom)      # Para obtener los residuales estandarizados
+library(DHARMa)     # Para la verificación de supuestos
+library(ISLR)       # Para la base de datos
+library(leaps)      # Para el cálculo de los mejores conjuntos de variables por diversos métodos
+library(bestglm)    # Para obtener el mejor subconjunto
+library(glmnet)     # Para utilizar la penalización Lasso
+library(factoextra) # Para obtener los componentes principales
+library(psych)      # Para obtener el análisis factorial
+library(bayesQR)    # Para la base de datos (PCA)
+library(GPArotation)
+```
+
+```{=tex}
+\begin{center}
+  {\huge \textbf{Componentes principales y análisis factorial exploratorio}}
+\end{center}
+```
+Los datos presentados en el Cuadro \ref{tab:Datos3} provienen de una exhaustiva encuesta diseñada para analizar la personalidad de un grupo selecto de 228 alumnos de licenciatura pertenecientes a una universidad en Estados Unidos. La encuesta aborda diversas facetas de la personalidad, evaluando las respuestas de los participantes en una escala numérica del 1 al 5, reflejando sus percepciones y opiniones en relación con las preguntas planteadas para saber si son personas a las que les gusta pasar tiempo con los demás.
+
+```{r echo=FALSE}
+# Carga de datos
+options(digits=4)
+Datos3 <- read.csv("Dat3Ex.csv", header=TRUE, sep="," )
+
+# Limpieza de datos
+# Columnas (variables) a eliminar
+Columns_delete <- c('X','V3','V5','V7','V8','V10','V11','V13','V15','V18','V19','V20','V21','V22','V23','V24','V25','V28','V30','V32','V33','V35','V36','V38','V39','V40','V41','V42','V43','V44')
+
+# Dejamos las columnas (variables) con las que vamos a trabajar
+Datos3 <- Datos3[, !names(Datos3) %in% Columns_delete]
+```
+
+```{r Datos3, include=TRUE, echo=FALSE, warning=FALSE, results='asis'}
+variables <- data.frame(
+Afirmacion = c( "Is talkative", "Tends to find fault with others", "Is depressed, blue", 
+              "Is reserved", "Is relaxed, handles stress well", "Starts quarrels with others", 
+              "Can be tense", "Generates a lot of enthusiasm", "Has a forgiving nature", 
+              "Has an assertive personality", "Can be cold and aloof", "Can be moody", 
+              "Is sometimes shy, inhibited", "Remains calm in tense situations", 
+              "Is sometimes rude to others"),
+Variable = c('V1', 'V2', 'V4', 'V6', 'V9', 'V12', 'V14', 'V16', 'V17', 'V26', 
+             'V27', 'V29', 'V31', 'V34', 'V37'),
+Tipo = c( rep('Integer',15) ) ) # Pregunta
+
+kable(variables, booktabs = T, 
+        align = "c", 
+        linesep = "", 
+        caption = "Descripción: Preguntas y variables de la base de datos") %>% 
+  kable_styling(latex_options = "HOLD_position")
+```
+
+La escala numerica es la siguiente: 1 = *Disagree strongly*; 2 = *Disagree a little* ; 3 = *Neither agree nor disagree*; 4 = *Agree a little*; 5 = *Agree Strongly*.
+
+\vspace{5mm}
+
+\textbf{{\large Componentes principales}}
+
+\vspace{2mm}
+
+Mediante el análisis de datos, se procedió a la obtención de los Componentes Principales con el objetivo de determinar la posible identificación de dimensiones relevantes en dichos datos. Con este propósito, se emplearon tanto los datos en su escala original como aquellos que fueron transformados a una escala específica.
+
+```{r Cor, echo=FALSE, fig.height=3, fig.width=4, warning=FALSE,fig.cap= "\\label{fig:Cor} Correlación Componentes principales vs Datos originales"}
+corrplot(cor(Datos3),        # Matriz de correlación
+         method = "circle", # Método para el gráfico de correlación
+         type = "upper",    # Estilo del gráfico (también "upper" y "lower")
+         diag = FALSE,      # Si TRUE (por defecto), añade la diagonal
+         tl.col = "#636060", # Color de las etiquetas
+         bg = "white",     # Color de fondo
+         title = "",       # Título
+         col = NULL)       # Paleta de colores
+```
+
+```{r varianzas, eval=FALSE, include=FALSE}
+var(Datos3)
+```
+
+\newpage
+
+A través del análisis de la Figura \ref{fig:Cor}, se evidencia la presencia de variables que exhiben correlaciones significativas, indicadas por un tamaño e intensidad considerable en el círculo correspondiente. En virtud de esta observación, procederemos a realizar la busqueda de los componentes principales.
+
+```{r Codo, echo=FALSE, fig.height=3, fig.width=4, warning=FALSE,fig.cap= "\\label{fig:Codo} Cantidad de componentes principales"}
+R.CP=prcomp(Datos3) # Utilizamos el argumento scale por default
+fviz_eig(R.CP)
+fa.parallel(Datos3,fa='both',fm = 'pa')
+
+# Mostrará cuantos componentes principales explican la mayor parte del modelo, en este caso, son 4 componentes principales los que explican la mayor parte del modelo. 
+#Para el uso de PCA y FA se utilizaran nfactor = 6 para poder analizar de una manera más amplia
+```
+
+En la Figura \ref{fig:Codo} se expone el número de componentes principales que explican la mayor proporción del modelo, siendo en este caso un total de cuatro componentes principales los que desempeñan dicha función preponderante. Con fines analíticos en el presente estudio, se emplearán seis componentes principales ($nfactor = 6$) con el propósito de realizar un análisis más exhaustivo y abarcador.
+
+```{r include=FALSE}
+# Componentes principales sin estandarizacion sin rotacion
+PC_org <-principal(Datos3, cor="cov",
+                   covar = TRUE, nfactor = 3, rotate = "none")
+
+# Componentes principales con estandarizacion sin rotacion
+PC_Esc <-principal(Datos3, cor="cor",
+                   covar = TRUE, nfactor = 3, rotate = "varimax")
+
+
+
+# Mostrar sólo los componentes principales
+PC_org$loadings
+PC_Esc[["loadings"]]
+```
+
+Para realizar esto, a pesar de la aparente homogeneidad en la escala de los datos, se llevó a cabo un análisis ayuda del software, revelando que sería más apropiado realizar el estudio mediante la estandarización de los datos.
+
+```{r PCA_Esc, echo=FALSE, fig.dim=c(6,4), fig.align="right", fig.cap= "\\label{fig:PCA_Esc} Componentes principales: Datos estandarizados"}
+
+# Hay una variable más que explica el componente PC1
+fa.diagram(PC_Esc, cut = .5, digits = 2)
+```
+
+Observemos, a través de la Figura \ref{fig:PCA_Esc}, que se identifican cinco seis principales. No obstante, debido a la extensión de las variables que engloban, únicamente es factible interpretar dos de estos componentes.
+
+Para el **Componente principal 1** (PC1) tenemos un grupo de afirmaciones: *"Is depressed", "Can be tense", "Can be moody", "Can be cold and aloof", "Starts quarrels with others"*. Por otro lado, tenemos otro grupo de afirmaciones dadas: *"Is relaxed, handles stress well","Remains calm in tense situations","Generates a lot of enthusiasm"*. Este fenómeno indica que a medida que aumenta el valor en el primer grupo, se observa una disminución correspondiente en el segundo grupo. Por lo tanto, podemos inferir que una persona experimentando emociones negativas específicas tenderá a exhibir menor nivel de tranquilidad o entusiasmo.
+
+Para el **Componente principal 2** (PC2) tenemos un grupo de afirmaciones: *"Is talkative","Has an assertive personality"*. Por otro lado, tenemos a la afirmación *"Is sometimes shy, inhibited"*. Es posible notar que un incremento en el valor del primer grupo se asocia con una disminución en la afirmación *"Is sometimes shy, inhibited"*. Esto sugiere que una persona extrovertida, capaz de expresar sus emociones, podría presentar características de poca timidez.
+
+\vspace{5mm}
+
+\textbf{{\large Análisis factorial exploratorio}}
+
+\vspace{5mm}
+
+Adicionalmente, se llevó a cabo un análisis factorial exploratorio con el propósito de investigar las relaciones subyacentes entre variables continuas. (véase la Figura \ref{fig:AFE_Esc}) Esta metodología fue seleccionada para identificar dimensiones relevantes en los datos. De manera análoga, con el objetivo de facilitar la interpretación, se llegó a la misma conclusión al considerar los datos estandarizados, la cual se presenta a continuación:
+
+```{r include=FALSE}
+# Analisis Factorial sin rotaciones y sin estandarizacion
+FA_org <-fa(Datos3, cor="cov",
+                   covar = TRUE, nfactor = 6, rotate = "none")
+fa.diagram(FA_org, cut = .5, digits = 2)
+```
+
+```{r AFE_Esc, echo=FALSE, fig.dim=c(6,5), fig.align="right", fig.cap= "\\label{fig:AFE_Esc} Análisis Factorial Exploratorio: Datos estandarizados"}
+
+FA_Esc <-fa(Datos3, cor="cor",
+                   covar = FALSE, nfactor = 5, rotate = "none")
+
+# El diagrama nos da mas variables para explicar
+fa.diagram(FA_Esc, cut = .5, digits = 2)
+```
+
+En concordancia con la información derivada de los componentes principales, identificamos dos factores significativos que son equiparables a aquellos obtenidos mediante el análisis de componentes principales.
+
+\newpage
+
+\textbf{{\large Componentes principales y análisis factorial exploratorio (con variables categoricas y rotaciones)}}
+
+```{r warning=FALSE, include=FALSE}
+# Para datos binarios u ordinales se usa cor="mixed"
+
+# A partir de aquí utilizaremos lo que apareció en la grafica de codo o Elbow Method, es decir nfactor = 4
+
+PC_Esc_varimax <-principal(Datos3, cor="mixed",
+                   covar = TRUE, nfactor = 4, rotate = "varimax")
+
+#print(PC_Esc_varimax, cut = .5)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+fa.diagram(PC_Esc_varimax, cut = .5, digits = 2)
+# Hay 4 componentes, 3 explicados de manera clara y uno con una sola variable. Veremos si podemos reducir el número de componentes con otras rotaciones
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# AQUI ES DONDE TENEMOS MENOS COMPONENTES PRINCIPALES Y SE EXPLICAN CON UNA CANTIDAD CONSIDERABLE DE VARIABLES. ES POR ESTO QUE ESTE MODELO ES EL OPTIMO
+
+# ============================================================================
+PC_Esc_oblimin <-principal(Datos3, cor="mixed",
+                   covar = TRUE, nfactor = 3, rotate = "oblimin")
+
+# ============================================================================
+#print(PC_Esc_oblimin, cut = .5)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# Tenemos aun 4 componentes y solo 2 son importantes. Veamos si podemos reducir la cantidad.
+fa.diagram(PC_Esc_oblimin, cut = .5, digits = 2)
+```
+
+```{r include=FALSE}
+PC_Esc_cluster <-principal(Datos3, cor="mixed",
+                   covar = TRUE, nfactor = 4, rotate = "cluster")
+#print(PC_Esc_cluster, cut = .5)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# Parece ser que todos los componentes se explican, pero eso no nos beneficia tanto, porque queremos que en una cantidad pequeña de componentes se explique lo más que se puedan los datos
+fa.diagram(PC_Esc_cluster, cut = .5, digits = 2)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# Analisis factorial
+LFA_varimax <-fa(Datos3, cor="mixed",
+                   covar = TRUE, nfactor = 4, rotate = "varimax")
+
+LFA_oblimin <-fa(Datos3, cor="mixed",
+                   covar = TRUE, nfactor = 4, rotate = "oblimin")
+
+# Se cambia el numero de factores para evitar el error: 'a' (4 x 3) debe ser cuadrada 
+LFA_cluster <-fa(Datos3, cor="mixed",
+                   covar = TRUE, nfactor = 5, rotate = "cluster")
+
+LFA_simplimax <-fa(Datos3, cor="mixed",
+                   covar = TRUE, nfactor = 4, rotate = "simplimax")
+
+fa.diagram(LFA_varimax, cut = .5, digits = 2)
+fa.diagram(LFA_oblimin, cut = .5, digits = 2)
+fa.diagram(LFA_cluster, cut = .5, digits = 2)
+fa.diagram(LFA_simplimax, cut = .5, digits = 2)
+
+# Notemos que rotate = "oblimin" y rotate = "simplimax" dan resultados similares
+```
+
+Se procedió, asimismo, a llevar a cabo el análisis categorizando las variables y aplicando rotaciones. Además, se consideró lo que se mostró en la Figura \ref{fig:Codo}. Se determinó que el modelo que proporciona la información más significativa en términos generales es el modelo de componentes principales con los datos estandarizados, utilizando la rotación "oblimin" (consulte la Figura \ref{fig:oblim}). Este modelo, a través de tres componentes principales, logra una óptima relación entre las variables, facilitando así una interpretación comprensible.
+
+```{r oblim, echo=FALSE, fig.dim=c(6,5), fig.align="right", fig.cap= "\\label{fig:oblim} Componentes principales: Datos estandarizados y rotacion  oblimin"}
+
+# Mostramos la solución optima
+fa.diagram(PC_Esc_oblimin, cut = .5, digits = 2)
+
+```
+
+En virtud de lo anterior, al recordar la interpretación, se concluye que:
+
+-   Para el \textbf{Componente Principal 1} (TC1), las afirmaciones describen comportamientos que podrían indicar una actitud negativa o desafiante en las interacciones. Sugieren un patrón de comportamiento caracterizado por frialdad emocional, conflictividad y ocasional falta de consideración hacia los demás. Sin embargo, la afirmación sobre un carácter indulgente señala un enfoque más compasivo y empático, contrarrestando las tendencias menos favorables sugeridas por las afirmaciones anteriores.
+
+-   En cuanto a las afirmaciones del \textbf{Componente Principal 3} (TC2) indican una posible secuencia de estados emocionales, desde la tensión hasta el malhumor, y en casos más graves, la depresión. Las afirmaciones positivas sobre la "gestión del estrés" y la "calma en situaciones tensas" contrarrestan estas tendencias negativas, sugiriendo un equilibrio emocional y habilidades para enfrentar desafíos.
+
+-   En cuanto a las afirmaciones del \textbf{Componente Principal 2} (TC2), describen a una persona habladora, con una personalidad asertiva que genera mucho entusiasmo, lo cual sugiere un nivel de extroversión y apertura en la interacción social. Sin embargo, las segundas afirmaciones contrarrestan describiendo a una persona que a veces es tímida e inhibida y que es reservada, lo cual indica tendencias hacia la introversión y la cautela en las interacciones sociales.

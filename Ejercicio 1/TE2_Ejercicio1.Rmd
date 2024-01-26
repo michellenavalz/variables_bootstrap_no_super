@@ -1,0 +1,229 @@
+---
+title: ""
+header-includes:
+   - \usepackage[spanish]{babel}
+   - \usepackage[utf8]{inputenc}
+   - \decimalpoint
+   - \usepackage{booktabs}
+   - \usepackage{longtable}
+   - \usepackage{array}
+   - \usepackage{multirow}
+   - \usepackage{wrapfig}
+   - \usepackage{float}
+   - \usepackage{colortbl}
+   - \usepackage{pdflscape}
+   - \usepackage{tabu}
+   - \usepackage{threeparttable}
+   - \usepackage{threeparttablex}
+   - \usepackage[normalem]{ulem}
+   - \usepackage{makecell}
+   - \usepackage{xcolor}
+   - \usepackage{helvet}
+   - \usepackage{vmargin}
+   - \setpapersize{A4}
+   - \setmargins{1.0cm}{1.0cm}{18cm}{26cm}{0pt}{0cm}{0pt}{1.0cm}
+   - \pagestyle{empty}
+output:
+  pdf_document:
+    keep_tex: yes
+  html_document:
+    df_print: paged
+---
+
+# Bootstrap no parametrico
+
+Sea $X_1,...,X_n$ una m.a. de la distribución $poisson(\theta)$. Supongamos que el parametro de interés a estimar es $\tau(\theta) = e^{-\theta}=\mathbb{P}(X=0).$ Se puede verificar que $\hat{\tau}(\theta)= \left(\frac{n-1}{n}\right)^{\sum_{i=1}^{n}X_i}$ es el UNVUE de $\tau(\theta)=e^{\theta}$, sin embargo, no es tan facil encontrar la distribución de $\hat{\tau}$ o la expresión de $V(\hat{\tau})$
+
+## Metodo Monte Carlo
+
+Primero realizaremos el método Monte Carlo.
+
+```{r, include=FALSE}
+rm(list = ls(all.names = TRUE))
+gc()
+library(boot)
+library(knitr)
+library(kableExtra)
+library(tidyverse)
+```
+
+Para utilizar este metodo, necesitamos conocer el valor de $\theta$ y el valor de $n$. Supongamos que $\theta=1$, $n=20$.
+
+El numero de simulaciones o muestras aleatorias será de $B=10,000$.
+
+Los pasos a seguir del metodo Monte Carlo son los siguientes:
+
+Generaremos $B=10,000$ muestras aleatorias de tamaño $n=20$ de una distribución $poisson(\theta=1)$
+
+Con cada muestra aleatoria $X_{1_i},...,X_{20_i}$ con $i=\{1,2,...,10,000\}$, podemos generar numeros aleatorios de la distribición de $\hat{\tau}$, como: $$\hat{\tau}_i(\theta)= \left(\frac{19}{20}\right)^{\sum_{j=1}^{20}X_{j_i}}$$
+
+y asi obtenemos los valores de $\hat{\tau}_1,...,\hat{\tau}_B$, que se consideran como los datos provenientes de la distribución de $\hat{\tau}$
+
+```{r monte_carlo, include=FALSE}
+# monte carlo
+set.seed(644) #
+
+n=20
+B = 10000
+theta=1
+list_taus<- rep(NA, B)
+
+for( i in 1:B){
+  muestra<- rpois(n, theta)
+  tau<- ((n-1)/n)^sum(muestra)
+  list_taus[i]<- tau
+}
+
+```
+
+Calculamos la varianza y la esperanza de $\hat{\tau}_1,...,\hat{\tau}_B$
+
+```{r tabla, include=TRUE, echo=FALSE, warning=FALSE, results='asis'}
+#Calculo de la esperanza:
+esperanza_mc<- mean(list_taus)
+#Calculo de la Varianza
+varianza_mc<-var(list_taus)
+
+tabla<- data.frame("Esperanza" = esperanza_mc,"Varianza" = varianza_mc)
+
+kable(tabla,
+      booktabs = T,
+      align= "c",
+      caption = "Esperanza y Varianza metodo Monte Carlo") %>%
+  kable_styling(latex_options =  "HOLD_position",
+full_width = FALSE)
+```
+
+Para visualizar mejor los datos, graficamos el histograma de $\hat{\tau}_1,...,\hat{\tau}_B$
+
+```{r hist_mc,fig.height=3.5, fig.width=8, echo=FALSE, fig.cap="\\label{fig:hist_mc}Histograma de tau estimada con el metodo Monte Carlo", message=FALSE, warning=FALSE, results='asis' }
+hist(list_taus,breaks=23, main="Histograma de las tau(theta) con Monte Carlo", xlab="tau(theta)", ylab="Frecuencia", col="lightblue")
+```
+
+Analizando la Figura \ref{fig:hist_mc}, podemos ver que una gran parte de los datos se concentran aproximadamente en el intervalo $[3.4,3.6]$,
+
+\newpage
+
+## Metodo Bootstrap
+
+El método bootstrap se basa en construir una distribución muestral para un estadístico de interés mediante el remuestreo repetido de los datos disponibles.
+
+La gran diferencia que tiene el Bootstrap con el metodo Monte Carlo es que en bootstrap solo tenemos una muestra aleatoria en en nuestro caso en particular es $S=\{X_1,...,X_{20}\}$, es decir solo **una** m.a. de tamaño $n=20$
+
+```{r muestra, include=FALSE}
+#1b
+#Genere n = 20 números aleatorios de una 
+#distribución Poisson(\theta), con \theta = 1.
+# Paso 1: Definir la muestra original
+set.seed(644) # fijamos una semilla para reproducibilidad
+n<-20
+lambda<-1
+muest_poi<- rpois(n, lambda)
+```
+
+La muestra con la que vamos a trabajar en particular será:
+
+$S=\{`r muest_poi`\}$
+
+A partir de esta muestra aleatoria S dada, generamos $B=10,000$ muestras bootstrap, cada muestra se crea seleccionando elementos de la muestra S con la técnica de muestreo con reemplazo. Es necesario el muestreo con reemplazo para evitar reproducir simplemente la muestra original S, obteniendo asi la i-ésima muestra bootstrap $S^{*(i)}=\{X^{*(i)}_1,...,X^{*(i)}_{20}\}$
+
+Con cada muestra bootstrap $S^{*(i)}$ calculamos $\hat{\tau}$ de la siguiente forma:
+
+$$\hat{\tau}_{S^{*(i)}}(\theta)= \left(\frac{n-1}{n}\right)^{\sum_{j=1}^{n}X^{*(i)}_j}$$
+
+y obtenemos una estimación de $\hat{\tau}$ que está basada en las $B=10,000$ replicaciones.
+
+$$\hat{\tau}^{*}_{(1)},...,\hat{\tau}^{*}_{(B)}$$
+
+```{r bootstrap, include=FALSE}
+# Paso 2: Crear una función que calcule tau(\theta)
+taus <- function(data, indices) {
+  sample_data <- data[indices]
+  return(((n-1)/n)^sum(sample_data))
+}
+
+# Paso 3: Realizar el bootstrap manualmente
+B <- 10000 # Número de muestras bootstrap
+bootstrap_taus <- rep(NA, B)
+
+for (i in 1:B) {
+  bootstrap_indices <- sample(1:length(muest_poi), replace = TRUE) #funcion sample: muestreo con reemplazo
+  bootstrap_taus[i] <- taus(muest_poi, bootstrap_indices)
+}
+
+```
+
+Calculamos la varianza y la esperanza de $\hat{\tau}^{*}_{(1)},...,\hat{\tau}^{*}_{(B)}$
+
+```{r tabla2, include=TRUE, echo=FALSE, warning=FALSE, results='asis'}
+#Esperanza 
+esperanza <- mean(bootstrap_taus)
+#Varianza
+varianza<-var(bootstrap_taus)
+
+tabla2<- data.frame("Esperanza"= esperanza, "Varianza"= varianza)
+
+kable(tabla2,
+      booktabs = T,
+      align= "c",
+      caption = "Esperanza y Varianza metodo Bootstrap") %>%
+  kable_styling(latex_options =  "HOLD_position",
+full_width = FALSE)
+```
+
+Realizamos el histograma de las $\hat{\tau}^{*}_{(1)},...,\hat{\tau}^{*}_{(B)}$
+
+```{r hist_bootstrap, fig.height=3.5, fig.width=8, echo=FALSE, fig.cap="\\label{fig:hist_bootstrap}Histograma de tau estimada con bootstrap", message=FALSE, warning=FALSE, results='asis'}
+# Graficamos el histograma de las taus de bootstrap
+hist(bootstrap_taus, breaks=23, main="Histograma de las tau(theta) Bootstrap", xlab="tau(theta) de Bootstrap", ylab="Frecuencia", col="lightblue")
+# Añadimos una línea para la media de las tau(\theta) de bootstrap
+abline(v=mean(bootstrap_taus), col="red", lwd=2, lty=2)
+# Añadimos una línea para \tau(theta) de la muestra original
+abline(v=((n-1)/n)^sum(muest_poi), col="blue", lwd=2)
+# Añadir una leyenda
+legend("topright", legend=c("Media de Bootstrap manual", "tau con muestra original"), col=c("red", "blue"), lty=c(2, 1), lwd=2)
+```
+
+Analizando la Figura \ref{fig:hist_bootstrap}, podemos ver que de igual forma que en la Figura \ref{fig:hist_mc} una gran parte de los datos se concentran aproximadamente en el intervalo $[3.4,3.6]$,
+
+Ahora analizaremos los datos y compararemos lo obtenido
+
+```{r tabla3, include=TRUE, echo=FALSE, warning=FALSE, results='asis'}
+metodos<- c("Monte Carlo", "Bootstrap no parametrico")
+esp<- c(esperanza_mc, esperanza)
+vari<- c(varianza_mc,varianza)
+
+tabla3<- data.frame("Metodo"=metodos,"Esperanza"= esp, "Varianza"= vari)
+
+kable(tabla3,
+      booktabs = T,
+      align= "c",
+      caption = "Esperanza y Varianza") %>%
+  kable_styling(latex_options =  "HOLD_position",
+full_width = FALSE)
+```
+
+En la Tabla 3 se muestran los valores de la esperanza y varianza de $\hat{\tau}(\theta)$ para cada método.
+
+Veamos como se ven los histogramas juntos
+
+```{r hist_so, fig.height=3.5, fig.width=8, echo=FALSE, fig.cap="\\label{fig:hist_so}Histogramas sobrepuestos de tau con el metodo Monte Carlo y el metodo bootstrap ", message=FALSE, warning=FALSE, results='asis'}
+library(dplyr)
+library(ggplot2)
+library(cowplot)
+
+tau<- c(list_taus, bootstrap_taus)
+metodo<- c(rep("MC", B), rep("BS", B))
+df<- data.frame(tau,metodo)
+
+
+ggplot(df, aes(x = tau, fill = metodo , colour = metodo)) + 
+  geom_histogram(alpha = 0.4, position = "identity")+
+  labs(x="tau",y="frecuencia")
+```
+
+Observaciones generales:
+
+Notemos que el metodo que más se acerca a la distribución de $\tau(\theta)$, es el metodo Monte Carlo, sin embargo necesitamos demasiadas muestras aleatorias cada una de tamaño 20, con el metodo bootstrap solo con una muestra aleatoria de tamaño 20 (para este caso en particular), podemos estimar la distribución de $\tau(\theta)$, siempre y cuando nuestros datos sean buenos, con base en los histogramas, podemos ver que deacuerdo a la Figura \ref{fig:hist_so} el metodo bootstrap con la muestra dada, se asemeja al histograma del metodo Monte Carlo, además la varianza de $\hat{\tau}(\theta)$ con el metodo bootstrap es de `r varianza` y con el metodo Monte Carlo es `r varianza_mc`, estas tienen una diferencia de `r varianza_mc-varianza`, notemos la varianza $\hat{\tau}(\theta)$ con el metodo de bootstrap es menor a la varianza de $\hat{\tau}(\theta)$ con el metodo Monte Carlo, sin embargo es pequeña la diferencia.
+
+En conclusión el metodo bootstrap es una buena opción para estimar $\tau(\theta)=\mathbb{P}(X=0)$ siempre y cuando la muestra aleatoria sea buena ya que con una solo muestra aleatoria podemos estimar la distribución de $\tau(\theta)=\mathbb{P}(X=0)$
